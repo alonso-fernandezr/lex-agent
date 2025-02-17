@@ -1,7 +1,15 @@
 [project]
 name = "lawglance"
 version = "0.1.0"
-description = "Add your description here"
+description = "Your AI-Powered Legal Assistan"
+authors = [{name = "https://lawglance.com/" }]
+maintainers = [
+    {name = "Contributor", email = "REMOVED"},
+    {name = "Contributor", email = "REMOVED"},
+    {name = "Contributor", email = "REMOVED"},
+    {name = "Contributor", email = "REMOVED"},
+    {name = "Contributor", email = "REMOVED"},
+]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -22,5 +30,8 @@ dependencies = [
     "streamlit==1.37.0",
 ]
 
-[tool.uv.workspace]
-members = ["hello-world"]
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "ruff>=0.11.0",
+]
