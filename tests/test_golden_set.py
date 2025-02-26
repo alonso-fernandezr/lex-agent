@@ -3,7 +3,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from eval.golden_set import load_golden_qa_set
+from eval.golden_set import GoldenQAItem, load_golden_qa_set, save_candidate_qa_items
 
 
 def test_loads_valid_items(tmp_path):
@@ -32,3 +32,12 @@ def test_raises_on_item_missing_required_field(tmp_path):
 
     with pytest.raises(ValidationError):
         load_golden_qa_set(path)
+
+
+def test_save_then_load_round_trips(tmp_path):
+    path = tmp_path / "candidates.json"
+    items = [GoldenQAItem(question="What does Article 1 declare?", chunk_text="India, that is Bharat.")]
+
+    save_candidate_qa_items(items, path)
+
+    assert load_golden_qa_set(path) == items
