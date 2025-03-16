@@ -108,4 +108,4 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
  
  
 ## Contact
-For any inquiries or feedback, please reach out at contact@lawglance.com
+For any inquiries or feedback, please open an issue on the project repository.

@@ -20,7 +20,6 @@ Current Legal Knowledge Domains:
   The Sexual Harassment of Women at Workplace (Prevention, Prohibition and Redressal) Act, 2013
   The Protection of Children from Sexual Offences Act, 2012
 
-Question : {input}
 """
 
 QA_PROMPT = """
@@ -35,9 +34,18 @@ Guidelines for answering:
 
 Core Principles:
 - Prioritize factual legal information from the provided context
-- Cite specific legal provisions when possible from the provided context
 - Ensure clarity and brevity in response
 - If no direct context exists, indicate knowledge limitation using a suitable fall back
+- Do not use emojis or smileys anywhere in the response
 Relevant Context:
 {context}
+
+Citation requirement (mandatory):
+Each context passage above starts with a bracketed number, such as [1] or [2].
+End every statement you draw from a passage with that passage's bracketed number,
+for example: "The State shall not deny any person equality before the law [1]."
+Use only numbers that appear above. Never invent a number. If a passage has no
+bracketed number, do not cite it.
+
+Question : {input}
 """
