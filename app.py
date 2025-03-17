@@ -1,20 +1,21 @@
 import os
 import streamlit as st
+import random
 import time
 import base64
 import uuid
 from dotenv import load_dotenv
 
-from backend.retrieval import agent_invoke
-from backend.config import cache as backend_cache
-from langchain_core.messages import HumanMessage
+from lawglance_main import Lawglance
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain.schema import HumanMessage, AIMessage
 
 # Set page configuration
 st.set_page_config(page_title="LawGlance", page_icon="logo/logo.png", layout="wide")
 
 # Load environment variables
 load_dotenv()
-
 
 # Custom CSS for UI
 def add_custom_css():
@@ -69,46 +70,25 @@ def add_custom_css():
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-
 add_custom_css()
-
-
-def render_citations(citations):
-    for citation in citations:
-        with st.expander(f"[{citation.number}] {citation.label}"):
-            st.text(citation.snippet)
-            if citation.source:
-                st.markdown(f"[Source]({citation.source})")
-    if citations:
-        st.caption(
-            "Bracketed citations are verified against retrieved passages; "
-            "article numbers mentioned in the answer text are not."
-        )
-
 
 # Title with Logo
 logo_path = "logo/logo.png"
 if os.path.exists(logo_path):
     with open(logo_path, "rb") as image_file:
         encoded_image = base64.b64encode(image_file.read()).decode()
-    st.markdown(
-        f"""
+    st.markdown(f"""
     <div class="st-title">
         <img src="data:image/png;base64,{encoded_image}" alt="LawGlance Logo" class="logo">
         <span>LawGlance - An AI Legal Assistant </span>
     </div>
-    """,
-        unsafe_allow_html=True,
-    )
+    """, unsafe_allow_html=True)
 else:
-    st.markdown(
-        """
+    st.markdown("""
     <div class="st-title">
         <span>LawGlance - Your Legal Assistant 📖</span>
     </div>
-    """,
-        unsafe_allow_html=True,
-    )
+    """, unsafe_allow_html=True)
 
 # Sidebar Info
 st.sidebar.header("About LawGlance")
@@ -126,11 +106,20 @@ if "thread_id" not in st.session_state:
 
 thread_id = st.session_state.thread_id
 
+# Load OpenAI models
+openai_api_key = os.getenv('OPENAI_API_KEY')
+llm = ChatOpenAI(model='gpt-4o-mini', temperature=0.9, openai_api_key=openai_api_key)
+embeddings = OpenAIEmbeddings()
+vector_store = Chroma(persist_directory="chroma_db_legal_bot_part1", embedding_function=embeddings)
+
+# Create LawGlance instance
+law = Lawglance(llm, embeddings, vector_store)
+
 # Get chat history from backend and display
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-    history = backend_cache.get_chat_history(thread_id).messages
+    history = law.get_session_history(thread_id).messages
     for msg in history:
         role = "user" if isinstance(msg, HumanMessage) else "assistant"
         st.session_state.messages.append({"role": role, "content": msg.content})
@@ -140,7 +129,6 @@ for message in st.session_state.messages:
     role = "user" if message["role"] == "user" else "assistant"
     with st.chat_message(role):
         st.markdown(message["content"])
-        render_citations(message.get("citations", []))
 
 # Prompt input
 st.markdown("<div class='chat-input-container'>", unsafe_allow_html=True)
@@ -152,17 +140,14 @@ if prompt and prompt.strip():
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # Invoke the agentic backend
-    result, citations, thread_id = agent_invoke(prompt, session_id=thread_id)
+    # Invoke LawGlance backend
+    result, updated_history = law.conversational(prompt, thread_id)
 
     # Rebuild session messages from updated Redis chat
-    updated_history = backend_cache.get_chat_history(thread_id).messages
     st.session_state.messages = []
     for msg in updated_history:
         role = "user" if isinstance(msg, HumanMessage) else "assistant"
         st.session_state.messages.append({"role": role, "content": msg.content})
-    if st.session_state.messages and st.session_state.messages[-1]["content"] == result:
-        st.session_state.messages[-1]["citations"] = citations
 
     # Animate AI response
     final_response = f"AI Legal Assistant: {result}"
@@ -175,4 +160,3 @@ if prompt and prompt.strip():
     with st.chat_message("assistant"):
         animated = "".join(list(response_generator(final_response)))
         st.markdown(animated)
-        render_citations(citations)

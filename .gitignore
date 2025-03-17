@@ -1,6 +1,3 @@
-/nbs
-nbs/ 
-
 @"
 hello.py
 hello-world/*
@@ -10,7 +7,6 @@ __pycache__/
 *.pyo
 *.pyd
 .idea/
-.env.local
 .env*
 !.env.example
 "@ | Set-Content -Path .gitignore -Encoding UTF8

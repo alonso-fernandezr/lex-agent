@@ -1,26 +1,20 @@
 import threading
 import logging
 from cache import RedisCache
-from citations import (
-    annotate_documents_for_citation,
-    cache_payload_to_result,
-    citations_to_cache_payload,
-    resolve_answer_citations,
-)
+from langchain.schema import HumanMessage, AIMessage
 from chains import get_rag_chain
 from prompts import SYSTEM_PROMPT, QA_PROMPT
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    handlers=[logging.StreamHandler()],
+    format='%(asctime)s %(levelname)s %(message)s',
+    handlers=[logging.StreamHandler()]
 )
-
 
 class Lawglance:
     """
-    Lawglance is a conversational AI interface that leverages a retrieval-augmented generation (RAG) pipeline
-    to answer user queries based on vector search and LLM responses. It supports Redis-based caching to improve
+    Lawglance is a conversational AI interface that leverages a retrieval-augmented generation (RAG) pipeline 
+    to answer user queries based on vector search and LLM responses. It supports Redis-based caching to improve 
     performance and stores session-based chat histories in memory.
 
     Attributes:
@@ -38,18 +32,15 @@ class Lawglance:
     Methods:
         get_session_history(session_id: str) -> RedisChatMessageHistory:
             Retrieves or initializes the chat history for the given session ID.
-
-        conversational(query: str, session_id: str) -> Tuple[str, list, list[Citation]]:
+        
+        conversational(query: str, session_id: str) -> Tuple[str, list]:
             Handles the user query, checks for cached responses, invokes RAG pipeline if necessary,
-            updates history, and returns answer, updated messages, and citations.
+            updates history, and returns answer and updated messages.
     """
-
     store = {}
     store_lock = threading.Lock()
 
-    def __init__(
-        self, llm, embeddings, vector_store, redis_url="redis://localhost:6379/0"
-    ):
+    def __init__(self, llm, embeddings, vector_store, redis_url="redis://localhost:6379/0"):
         self.llm = llm
         self.embeddings = embeddings
         self.vector_store = vector_store
@@ -61,9 +52,7 @@ class Lawglance:
                 Lawglance.store[session_id] = self.cache.get_chat_history(session_id)
                 logging.info(f"Created new chat history for session_id: {session_id}")
             else:
-                logging.debug(
-                    f"Using existing chat history for session_id: {session_id}"
-                )
+                logging.debug(f"Using existing chat history for session_id: {session_id}")
         return Lawglance.store[session_id]
 
     def conversational(self, query, session_id):
@@ -74,15 +63,14 @@ class Lawglance:
         - Otherwise, runs full RAG pipeline and updates history.
 
         Returns:
-            Tuple[str, list, list[Citation]]: (LLM answer, updated message list, citations)
+            Tuple[str, list]: (LLM answer, updated message list)
         """
         cache_key = self.cache.make_cache_key(query, session_id)
-        cached_payload = self.cache.get(cache_key)
-        if cached_payload:
+        cached_answer = self.cache.get(cache_key)
+        if cached_answer:
             logging.info(f"Cache hit for key: {cache_key}")
-            answer, citations = cache_payload_to_result(cached_payload)
             chat_history = self.get_session_history(session_id).messages
-            return answer, chat_history, citations
+            return cached_answer, chat_history
 
         logging.info(f"Cache miss for key: {cache_key}. Generating new answer.")
 
@@ -96,14 +84,13 @@ class Lawglance:
             config={"configurable": {"session_id": session_id}},
         )
 
-        _, citations = annotate_documents_for_citation(response["context"])
-        answer, citations = resolve_answer_citations(response["answer"], citations)
+        answer = response['answer']
 
         # Update chat history
         chat_history_obj.add_user_message(query)
         chat_history_obj.add_ai_message(answer)
 
         # Cache the answer
-        self.cache.set(cache_key, citations_to_cache_payload(answer, citations))
+        self.cache.set(cache_key, answer)
 
-        return answer, chat_history_obj.messages, citations
+        return answer, chat_history_obj.messages
